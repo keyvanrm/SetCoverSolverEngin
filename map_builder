@@ -1,0 +1,22 @@
+import numpy
+import math
+class MapAccess:
+
+    def __init__(self, left_long, right_long, up_lat, down_lat, x_length):
+
+        self.left_long = math.radians(left_long)
+        self.right_long = math.radians(right_long)
+        self.up_lat = up_lat
+        self.down_lat = down_lat
+        self.set_cooridnate(x_length)
+
+    def get_distance(self, long1, long2, lat1, lat2 ):
+        d_long = abs(long1-long2)
+        d_lat = abs(lat1-lat2)
+        a = (math.sin(d_lat/2))^2 + math.cos(lat1) * math.cos(lat2) * (math.sin(d_long/2))^2
+
+        dist = 0
+        return dist
+
+    def set_cooridnate(self, x_length):
+        get_dis

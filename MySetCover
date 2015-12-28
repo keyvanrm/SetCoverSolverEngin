@@ -1,0 +1,191 @@
+from pylab import *
+import numpy as np
+import copy
+
+class ElementOwnership:
+    def __init__(self, ground_set_size):
+        self.ground_set_size = ground_set_size
+        self.sets = [[] for i in range(ground_set_size)]
+
+    def add_set(self, element_index, set_index):
+        self.sets[element_index].append(set_index)
+
+
+class MySet:
+    def __init__(self, likely_size, set_id):
+        self.likely_size = likely_size
+        self.elements = []
+        self.set_id = set_id
+
+    def create(self, ground_size, e_parents):
+        length = 0
+        for i in range(ground_size):
+            temp = np.random.random()
+            if temp < self.likely_size/8:
+                self.elements.append(i)
+                length += 1
+                e_parents.add_set(i, self.set_id)
+        self.elements.insert(0, length)
+
+class SetCover:
+
+    def __init__(self, ground_set_size, sets_number, max_cost):
+        self.ground_set_size = ground_set_size
+        self.sets_number = sets_number
+        self.max_cost = max_cost
+        self.sets_child_list = []
+        self.element_parent_list = []
+        self.child_numbers = []
+        self.set_size = []
+        self.selected_sets_list = []
+        self.g_set = set()
+        self.cost_set = set()
+        self.cost_trend = [0]
+        self.obj_trend = [0]
+
+    def generate_sets(self):
+        my_sets = []
+        set_relative_sizes = np.random.uniform(0, 1, self.sets_number)
+        e_parents = ElementOwnership(self.ground_set_size)
+        for i in range(self.sets_number):
+            temp = MySet(set_relative_sizes[i], i)
+            temp.create(self.ground_set_size, e_parents)
+            my_sets.append(temp.elements)
+
+        my_file = open('sets_child.txt', 'w')
+        for s in range(self.sets_number):
+            for e in my_sets[s]:
+                my_file.write('%d ' % e)
+            my_file.write("\n")
+        my_file.close()
+        my_file = open('element_parents.txt', 'w')
+        for e in range(self.ground_set_size):
+            for s in e_parents.sets[e]:
+                my_file.write('%d ' % s)
+            my_file.write('\n')
+        my_file.close()
+
+    def read_data(self):
+        my_file = open('sets_child.txt', 'r')
+        lines = my_file.readlines()
+
+        for l in lines:
+            child_list_str = l.split(" ")
+            child_list_str.pop()
+            child_list = [int(e) for e in child_list_str]
+            number_of_childs = child_list.pop(0)
+            self.set_size.append(number_of_childs)
+            child_set = set(child_list)
+            self.sets_child_list.append(child_set)
+        my_file.close()
+
+        my_file = open('element_parents.txt', 'r')
+        lines = my_file.readlines()
+
+        for l in lines:
+            parent_list_str = l.split(" ")
+            parent_list_str.pop()
+            parent_list = [int(e) for e in parent_list_str]
+            parent_set = set(parent_list)
+            self.element_parent_list.append(parent_set)
+        my_file.close()
+
+    def solve_heuristic(self):
+        remaining_sets_list = copy.copy(self.sets_child_list)
+        q_max = -1
+        while q_max != 0:
+            q_max = 0
+            set_max = ()
+            for set_i in remaining_sets_list:
+                w = set_i - self.g_set
+                c = set_i & (self.g_set - self.cost_set)
+                w_size = len(w)
+                c_size = len(c)+0.1
+                if w_size/c_size > q_max and len(self.cost_set)+len(c) <= self.max_cost:
+                    q_max = w_size/c_size
+                    set_max = set_i
+                    c_max = c
+            if len(set_max) > 0:
+                self.g_set = self.g_set | set_max
+                index_max = self.sets_child_list.index(set_max)
+                self.selected_sets_list.append(index_max)
+                remaining_sets_list.remove(set_max)
+                self.cost_set = self.cost_set | c_max
+
+    def get_trends(self):
+        cost_set = set()
+        obj_set = set()
+
+        for i in self.selected_sets_list:
+            temp = self.sets_child_list[i]
+            cost_set = cost_set | (obj_set & temp)
+            obj_set = obj_set | temp
+            self.obj_trend.append(len(obj_set))
+            self.cost_trend.append(len(cost_set))
+            # print len(cost_set)
+
+
+def draw_graph(set_list, obj_trend, cost_trend):
+    figure(1, figsize=(8, 6))
+    plt.ylabel('Evolution of the obj/cost', size=18)
+    plt.xlabel('Number of iterations', size=18)
+    plt.title('Cost limit 600', size=18)
+    plt.grid(True)
+    plt.plot(range(len(set_list)+1), obj_trend, 'k', label='Objective')
+    plt.plot(range(len(set_list)+1), cost_trend, 'k--', label='Cost')
+    plt.legend(loc='upper left')
+    plt.savefig('trend_600.pdf', format='pdf')
+    plt.show()
+
+my_set_cover_problem = SetCover(500, 50, 100)
+# my_set_cover_problem.generate_sets()
+my_set_cover_problem.read_data()
+my_set_cover_problem.solve_heuristic()
+figure(1, figsize=(8, 6))
+plt.ylabel('Number of sets', size=18)
+plt.xlabel('Set size', size=18)
+plt.title('Distribution of set sizes', size=18)
+plt.grid(True)
+plt.hist(my_set_cover_problem.set_size, 10, color = 'grey', rwidth=5)
+plt.savefig('set_size_hist.pdf', format='pdf')
+plt.show()
+# my_set_cover_problem.get_trends()
+# #print my_set_cover_problem.g_set
+# print len(my_set_cover_problem.g_set)
+# print len(my_set_cover_problem.cost_set)
+# print my_set_cover_problem.selected_sets_list
+# print my_set_cover_problem.obj_trend
+# draw_graph(my_set_cover_problem.selected_sets_list, my_set_cover_problem.obj_trend, my_set_cover_problem.cost_trend)
+
+# cost_list = range(10,  500, 10)
+# obj = []
+# number_of_sets_chosen = []
+# for i in cost_list:
+#     my_problem = SetCover(500, 500, i)
+#     my_problem.read_data()
+#     my_problem.solve_heuristic()
+#     obj.append(len(my_problem.g_set))
+#     number_of_sets_chosen.append(len(my_problem.selected_sets_list))
+
+# figure(1, figsize=(8, 6))
+# plt.ylabel('Objective', size=18)
+# plt.xlabel('Cost limit', size=18)
+# plt.title('Objective vs Cost', size=18)
+# plt.grid(True)
+# plt.plot(cost_list, obj, 'k', label='Objective')
+# plt.legend(loc='upper left')
+# plt.savefig('objective_vs_cost.pdf', format='pdf')
+# plt.show()
+#
+# figure(2, figsize=(8, 6))
+# plt.ylabel('Number of sets chosen', size=18)
+# plt.xlabel('Cost limit', size=18)
+# plt.title('SetsNum vs Cost', size=18)
+# plt.grid(True)
+# plt.plot(cost_list, number_of_sets_chosen, 'k--')
+# plt.savefig('setsNum_vs_cost.pdf', format='pdf')
+# plt.show()
+
+
+
+
